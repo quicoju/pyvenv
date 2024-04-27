@@ -593,18 +593,19 @@ Right now, this just checks if WORKON_HOME is set."
 
 (defun pyvenv--add-dirs-to-PATH (dirs-to-add)
   "Add DIRS-TO-ADD to different variables related to execution paths."
-  (let* ((new-eshell-path-env (pyvenv--prepend-to-pathsep-string dirs-to-add (default-value 'eshell-path-env)))
+  (let* ((new-eshell-path-env (append dirs-to-add (eshell-get-path)))
          (new-path-envvar (pyvenv--prepend-to-pathsep-string dirs-to-add (getenv "PATH"))))
     (setq exec-path (append dirs-to-add exec-path))
-    (setq-default eshell-path-env new-eshell-path-env)
+    (eshell-set-path new-eshell-path-env)
     (setenv "PATH" new-path-envvar)))
 
 (defun pyvenv--remove-dirs-from-PATH (dirs-to-remove)
   "Remove DIRS-TO-REMOVE from different variables related to execution paths."
-  (let* ((new-eshell-path-env (pyvenv--remove-from-pathsep-string dirs-to-remove (default-value 'eshell-path-env)))
+  (let* ((eshell-path (mapcar #'directory-file-name (eshell-get-path)))
+         (new-eshell-path-env (pyvenv--remove-many-once dirs-to-remove eshell-path))
          (new-path-envvar (pyvenv--remove-from-pathsep-string dirs-to-remove (getenv "PATH"))))
     (setq exec-path (pyvenv--remove-many-once dirs-to-remove exec-path))
-    (setq-default eshell-path-env new-eshell-path-env)
+    (eshell-set-path new-eshell-path-env)
     (setenv "PATH" new-path-envvar)))
 
 ;;; Compatibility
@@ -629,6 +630,13 @@ FILENAME defaults to `buffer-file-name'."
                            (cdr line)))
         (setq line (cdr line)))
       (setq line (cdr line)))))
+
+(when (not (fboundp 'eshell-set-path))
+  ;; Emacs 29.1+
+  (defun eshell-set-path (path-list)
+    "Set the `eshell-path-env' to the given PATH-LIST."
+    (let ((path (mapconcat 'identity path-list path-separator)))
+      (setq-default eshell-path-env path))))
 
 (provide 'pyvenv)
 ;;; pyvenv.el ends here
